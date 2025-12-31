@@ -2,7 +2,8 @@
 
 import { ServerActionResponse, DoctorSummary } from "@/types";
 import { prisma } from "@/db/prisma";
-import { Role } from "@/lib/generated/prisma/enums";
+//import { Role } from "@/db/prisma";
+//import { Role } from "@/lib/generated/prisma/enums";
 
 /**
  * Server action to fetch a summary of all active doctors.
@@ -18,7 +19,7 @@ export async function getOurDoctors(): Promise<
     // We use `select` to efficiently query only the necessary fields.
     const doctors = await prisma.user.findMany({
       where: {
-        role: Role.DOCTOR,
+        role: "DOCTOR",
         doctorProfile: {
           isActive: true,
         },

@@ -1,13 +1,33 @@
-import { bannerImageData } from "@/db/dummydata";
+import { BannerImageData } from "@/types";
 import Image from "next/image";
+import { getBanners } from "@/lib/actions/settings.actions";
 
-export default function HomeBanner() {
+export default async function HomeBanner() {
   // Get the first banner from the dummy data.
   // In a real-world scenario, you might fetch this or receive it as a prop.
-  const banner = bannerImageData[0];
+  let banner: BannerImageData[] = [];
+  let fetchError: string | null = null;
+
+  try {
+    const response = await getBanners();
+
+    if (response.success && response.data) {
+      banner = response.data;
+    } else {
+      fetchError =
+        response.message || "Failed to load doctor banner data from database";
+    }
+  } catch (error) {
+    fetchError = error instanceof Error ? error.message : "Fetch data failed";
+  }
 
   // Render nothing if there's no banner data to display
-  if (!bannerImageData || bannerImageData.length == 0) {
+  if (
+    !banner ||
+    banner.length == 0 ||
+    banner[0].imageUrl == null ||
+    banner[0].imageUrl == ""
+  ) {
     return (
       <div className="w-full text-gray-500 mt-5 h-64 md:h-80 lg:h-96 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
         No background image
@@ -19,9 +39,9 @@ export default function HomeBanner() {
     <section className="relative w-full h-75 md:h-100 lg:h-125 overflow-hidden">
       {/* Background Image */}
       <Image
-        src={banner.imageUrl}
+        src={banner[0].imageUrl}
         fill
-        alt={banner.name}
+        alt={banner[0].name}
         className="object-cover"
         priority
         sizes="100vw"

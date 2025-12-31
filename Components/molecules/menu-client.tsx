@@ -26,7 +26,7 @@ export default function MenuClient({ desktopAvatar }: MenuClientProps) {
   };
 
   const handleSheetCloseAutoFocus = (event: Event) => {
-    event.preventDefault;
+    event.preventDefault();
   };
 
   return (
@@ -46,7 +46,7 @@ export default function MenuClient({ desktopAvatar }: MenuClientProps) {
 
         {/* Book Appointment Button */}
         <Button asChild variant="brand" size="lg">
-          <Link href="/#our-doctors" className="text-text-caption-2">
+          <Link href="/" className="text-text-caption-2">
             Book Appointment
           </Link>
         </Button>
@@ -58,6 +58,7 @@ export default function MenuClient({ desktopAvatar }: MenuClientProps) {
       {/* ====================================================== */}
       {/* Mobile Nav (Implementation using Shadcn Sheet)         */}
       {/* ====================================================== */}
+      {/* Mobile Nav*/}
       <nav className="md:hidden">
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
           <SheetTrigger
@@ -66,17 +67,16 @@ export default function MenuClient({ desktopAvatar }: MenuClientProps) {
           >
             <MoreVertical />
           </SheetTrigger>
+
           <SheetContent
             side="right"
             className="flex flex-col items-start p-4 bg-background-2"
             onCloseAutoFocus={handleSheetCloseAutoFocus}
           >
             <SheetHeader className="w-full justify-start flex flex-row items-center border-b">
-              <SheetTitle>Menu</SheetTitle>
+              <SheetTitle className="text-2xl font-bold">Menu</SheetTitle>
             </SheetHeader>
-
             <ThemeToggle />
-
             <Link
               href="/"
               className="body-regular text-text-body hover:text-primary py-3"
@@ -85,7 +85,7 @@ export default function MenuClient({ desktopAvatar }: MenuClientProps) {
               Home
             </Link>
 
-            <Button asChild variant="brand" size="sm" className="w-full">
+            <Button asChild variant="brand" size="sm" className="w-full my-2">
               <Link
                 href="/#our-doctors"
                 onClick={closeMobileMenu}
@@ -95,9 +95,9 @@ export default function MenuClient({ desktopAvatar }: MenuClientProps) {
               </Link>
             </Button>
 
-            <SheetFooter className="w-full">
-              {/* We render the desktopAvatar prop here for the Sign In button */}
+            <SheetFooter className="w-full p-0">
               <MobileUserSignOrAvatar
+                key=""
                 onMobileActionComplete={closeMobileMenu}
               />
             </SheetFooter>

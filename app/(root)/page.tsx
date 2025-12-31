@@ -18,7 +18,7 @@ export default function Home() {
             specialized healthcare consultation. Our facility brings together
             exceptional physicians across all major medical departments,
             offering expert diagnosis and personalized treatment planning in one
-            convenient location.{" "}
+            convenient location.
           </p>
 
           <DepartmentsSection />

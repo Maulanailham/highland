@@ -1,19 +1,36 @@
 import { departmentData } from "@/db/dummydata";
 import DepartmentCard from "../molecules/department-card";
+import { DepartmentData, ServerActionResponse } from "@/types";
+import { getDepartments } from "@/lib/actions/settings.actions";
 
-interface DepartmentData {
+/* interface DepartmentData {
   id: string;
   name: string;
   iconName: string;
-}
+} */
 
-export default function DepartmentsSection() {
-  const departments: DepartmentData[] = departmentData;
+export default async function DepartmentsSection() {
+  let departments: DepartmentData[] = [];
+  let fetchError: string | null = null;
+
+  try {
+    const response = await getDepartments();
+    if (response.success && response.data) {
+      departments = response.data.departments;
+    } else {
+      fetchError =
+        response.message || "Failed to load department data from database";
+    }
+  } catch (error) {
+    fetchError = error instanceof Error ? error.message : "unexpected error";
+  }
 
   return (
     <section className="w-full">
       <h2 className="text-center text-text-title mb-8">Our Departments</h2>
-      {departments.length == 0 ? (
+      {fetchError ? (
+        <div className="text-center text-grey-500 py-4">{fetchError}</div>
+      ) : departments.length == 0 ? (
         <div className="text-grey-500 py-4 text-center">
           Department not found
         </div>

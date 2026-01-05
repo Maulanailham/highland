@@ -1,6 +1,6 @@
 import { BannerImage, Department } from "@/lib/generated/prisma/client";
 
-export interface ServerActionResponse<T = any> {
+export interface ServerActionResponse<T = unknown> {
   success: boolean;
   message?: string;
   data?: T;
@@ -8,8 +8,10 @@ export interface ServerActionResponse<T = any> {
   errorType?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface DepartmentData extends Department {}
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface BannerImageData extends BannerImage {}
 
 export interface DoctorSummary {
@@ -28,4 +30,17 @@ export interface DoctorReview {
   testimonialText: string;
   patientName: string;
   patientImage: string | null;
+}
+
+export interface DoctorDetails {
+  id: string;
+  name: string;
+  image: string | null;
+  credentials: string;
+  speciality: string;
+  rating: number;
+  reviewCount: number;
+  languages: string[];
+  specializations: string[];
+  brief: string;
 }

@@ -37,6 +37,7 @@ export default function RatingStars({
           return (
             <Star key={`full-${i}`} fill={color} color={color} size={size} />
           );
+          //3.7 = full 3, (sisa 4 = 4-0.5 == 3.5 <= 3)
         } else if (starNumber - 0.5 <= rating) {
           // --- Half Star ---
           // This renders if the rating is, for example, 3.5, 3.6, etc., for the 4th star.

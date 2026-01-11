@@ -4,16 +4,16 @@ import { LeaveType } from "@/lib/generated/prisma/enums";
 async function main() {
   // --- Placeholder for Doctor IDs ---
   const doctorIds = [
-    "801acb38-3b13-41b3-a9c0-a5884e4dfa47", // Replace with actual doctor ID
-    "aae24f98-5ade-47f8-9a2f-40caf25b830a", // Replace with actual doctor ID
-    "fbb8c3af-fb70-4da8-84d5-12483748637c", // Replace with actual doctor ID
+    "a7916ada-dee4-4f5b-9bbd-d07c08a273b8", // Replace with actual doctor ID
+    "4b6d38d2-65fb-4a6f-8f31-edad4f9dd213", // Replace with actual doctor ID
+    "2bbd8ef8-ffa5-4be9-88a3-871937eb2e21", // Replace with actual doctor ID
   ];
 
   // --- Leave Dates ---
   // Note: The script will create overlapping leave requests for the same day
   // for each doctor for demonstration purposes. In a real-world scenario,
   // you would likely only create one leave type per doctor per day.
-  const leaveDate = new Date("2025-07-10T00:00:00Z");
+  const leaveDate = new Date("2026-01-16T00:00:00Z");
 
   console.log("Setting leave for doctors...");
 

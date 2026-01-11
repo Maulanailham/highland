@@ -44,3 +44,21 @@ export interface DoctorDetails {
   specializations: string[];
   brief: string;
 }
+
+export interface TimeSlot {
+  startTime: string;
+  endTime: string;
+  startTimeUTC: Date;
+  endTimeUTC: Date;
+}
+
+export interface TimeSlot {
+  start: string; // Format ISO atau Local Time String
+  end: string;
+  isAvailable: boolean;
+}
+
+export interface DoctorAvailabilityData {
+  date: string;
+  slots: TimeSlot[];
+}

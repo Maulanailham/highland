@@ -3,7 +3,7 @@ import DoctorProfileTopCard from "@/Components/organisms/doctor-profile/doctorpr
 import PatientReviews from "@/Components/organisms/doctor-profile/patient-reviews";
 import { getDoctorDetails } from "@/lib/actions/doctors.actions";
 import { notFound } from "next/navigation";
-
+import AppointmentScheduler from "@/Components/organisms/doctor-profile/schedule-appointment";
 interface Params {
   doctorId: string;
 }
@@ -13,19 +13,18 @@ export default async function DoctorProfilePage({
 }: {
   params: Promise<Params>;
 }) {
-  let doctorIdObject = await params;
-  let { doctorId } = doctorIdObject;
+  const doctorIdObject = await params;
+  const { doctorId } = doctorIdObject;
   let doctorActionResponse;
-
   try {
     doctorActionResponse = await getDoctorDetails(doctorId);
   } catch (error) {
-    console.error("Error fetching doctor details: ", error);
+    console.error("Error fetching doctor details:", error);
     return (
       <div className="p-6 text-center text-red-500">
         <p>
-          We're sorry, but something went wrong while trying to load the
-          doctor's profile
+          We&apos;re sorry , but something went wrong while trying to load the
+          doctor&apos;s profile.
         </p>
         <p>Please try refreshing the page or check back later</p>
       </div>
@@ -33,47 +32,51 @@ export default async function DoctorProfilePage({
   }
 
   if (!doctorActionResponse.success) {
-    if (doctorActionResponse.errorType == "NOT_FOUND") {
-      return notFound();
+    if (doctorActionResponse.errorType === "NOT_FOUND") {
+      notFound();
     }
+    //handle all other defined errors
     console.error(
-      `Failed to fetch doctorId: ${doctorId}`,
+      `failed to fetch doctor details for ${doctorId} `,
       doctorActionResponse.message,
       doctorActionResponse.error
     );
     <div className="p-6 text-center text-red-500">
-      <p>Could not load doctor profile</p>
+      <p>Could not load doctor profile.</p>
       <p>Please try again later</p>
     </div>;
   }
 
+  //happy path
   const doctor = doctorActionResponse.data;
   if (!doctor) {
     notFound();
   }
 
   return (
-    <div className="flex flex-row">
-      <div>
-        <div>
-          <DoctorProfileTopCard
-            id={doctor.id}
-            name={doctor.name}
-            credentials={doctor.credentials}
-            speciality={doctor.speciality}
-            languages={doctor.languages}
-            specializations={doctor.specializations}
-            rating={doctor.rating}
-            reviewCount={doctor.reviewCount}
-            image={doctor.image}
-            brief={doctor.brief}
-          />
+    <div className="w-full flex flex-col md:flex-row max-w-[1376px] mx-auto gap-8 p-6 md:p-8">
+      <div className="flex flex-col gap-6 md:gap-8 md:max-w-[908px] md:flex-1">
+        <DoctorProfileTopCard
+          id={doctor.id}
+          name={doctor.name}
+          credentials={doctor.credentials}
+          speciality={doctor.speciality}
+          languages={doctor.languages}
+          specializations={doctor.specializations}
+          rating={doctor.rating}
+          reviewCount={doctor.reviewCount}
+          image={doctor.image}
+          brief={doctor.brief}
+        />
+        <div className="md:hidden">
+          <AppointmentScheduler doctorId={doctor.id} />
         </div>
-        <div className="md:hidden">Appointment schedule</div>
         <DoctorProfileAbout name={doctor.name} brief={doctor.brief} />
         <PatientReviews doctorId={doctor.id} averageRating={doctor.rating} />
       </div>
-      <div className="hidden md:block">Appointment schedule</div>
+      <div className="hidden md:block">
+        <AppointmentScheduler doctorId={doctor.id} />
+      </div>
     </div>
   );
 }

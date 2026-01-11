@@ -1,9 +1,19 @@
 "use server";
 
-import { ServerActionResponse, DoctorSummary, DoctorDetails } from "@/types";
+import {
+  ServerActionResponse,
+  DoctorSummary,
+  DoctorDetails,
+  TimeSlot,
+} from "@/types";
 import { prisma } from "@/db/prisma";
 //import { Role } from "@/db/prisma";
 import { Role } from "@/lib/generated/prisma/enums";
+
+import { addMinutes, format, isSameDay, parse } from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { getAppTimeZone } from "@/lib/config"; // As specified in the prompt
+import { AppointmentStatus, LeaveType } from "@/lib/generated/prisma/client"; // Import enums from generated Prisma client
 
 /**
  * Server action to fetch a summary of all active doctors.
@@ -156,6 +166,202 @@ export async function getDoctorDetails(
     return {
       success: false,
       message: "An unexpected error occurred while fetching doctor details.",
+      error: error instanceof Error ? error.message : "Unknown error",
+      errorType: "SERVER_ERROR",
+    };
+  }
+}
+
+/**
+ * Parameters for the getAvailableDoctorSlots server action.
+ */
+interface GetAvailableSlotsParams {
+  /** The unique identifier of the doctor. */
+  doctorId: string;
+  /** The target date in "YYYY-MM-DD" format. */
+  date: string;
+  /** Optional: The ID of the user making the request to handle booking exceptions. */
+  currentUserId?: string;
+}
+
+/**
+ * A Next.js server action to calculate all available appointment time slots
+ * for a specific doctor on a given calendar date.
+ *
+ * @param {GetAvailableSlotsParams} params - The parameters for calculating slots.
+ * @returns {Promise<ServerActionResponse<TimeSlot[]>>} A response object containing the list of available time slots or an error.
+ */
+export async function getAvailableDoctorSlots({
+  doctorId,
+  date,
+  currentUserId,
+}: GetAvailableSlotsParams): Promise<ServerActionResponse<TimeSlot[]>> {
+  try {
+    // --- 1. SETUP & PREREQUISITES ---
+
+    const appTimeZone = getAppTimeZone();
+    const nowUTC = new Date(); // Current time in UTC
+
+    // Fetch global application settings for slot generation.
+    const appSettings = await prisma.appSettings.findFirst();
+    if (!appSettings) {
+      return {
+        success: false,
+        message: "Application settings are not configured.",
+        errorType: "ConfigurationError",
+      };
+    }
+    const { slotsPerHour, startTime, endTime } = appSettings;
+    const slotDurationInMinutes = 60 / slotsPerHour;
+
+    // --- 2. GENERATE ALL POTENTIAL SLOTS (MASTER LIST) ---
+
+    const allPotentialSlots: TimeSlot[] = [];
+    // Convert the day's start and end times from app timezone to UTC.
+    const dayStartTimeUTC = fromZonedTime(`${date}T${startTime}`, appTimeZone);
+    const dayEndTimeUTC = fromZonedTime(`${date}T${endTime}`, appTimeZone);
+
+    let currentSlotStartUTC = dayStartTimeUTC;
+
+    // Loop through the day and generate all possible slots.
+    while (currentSlotStartUTC < dayEndTimeUTC) {
+      const currentSlotEndUTC = addMinutes(
+        currentSlotStartUTC,
+        slotDurationInMinutes
+      );
+
+      // Ensure the generated slot does not exceed the doctor's end time.
+      if (currentSlotEndUTC > dayEndTimeUTC) {
+        break;
+      }
+
+      allPotentialSlots.push({
+        startTimeUTC: currentSlotStartUTC,
+        endTimeUTC: currentSlotEndUTC,
+        // Format display times in the application's local timezone.
+        startTime: format(
+          toZonedTime(currentSlotStartUTC, appTimeZone),
+          "HH:mm"
+        ),
+        endTime: format(toZonedTime(currentSlotEndUTC, appTimeZone), "HH:mm"),
+      });
+
+      currentSlotStartUTC = currentSlotEndUTC;
+    }
+
+    let availableSlots = [...allPotentialSlots];
+
+    // --- 3. FILTER UNAVAILABLE SLOTS (SUBTRACTION LOGIC) ---
+
+    // A. Filter based on Doctor's Leave
+    const leaveDate = new Date(date); // Prisma's @db.Date type maps to a JS Date at midnight UTC.
+    const doctorLeave = await prisma.doctorLeave.findUnique({
+      where: {
+        doctorId_leaveDate: {
+          doctorId,
+          leaveDate: leaveDate,
+        },
+      },
+    });
+
+    if (doctorLeave) {
+      if (doctorLeave.leaveType === LeaveType.FULL_DAY) {
+        return { success: true, data: [] }; // Doctor is on leave the whole day.
+      }
+
+      // 1:00 PM in the app's timezone, converted to UTC.
+      const afternoonStartUTC = fromZonedTime(`${date}T13:00:00`, appTimeZone);
+
+      if (doctorLeave.leaveType === LeaveType.MORNING) {
+        availableSlots = availableSlots.filter(
+          (slot) => slot.startTimeUTC >= afternoonStartUTC
+        );
+      } else if (doctorLeave.leaveType === LeaveType.AFTERNOON) {
+        availableSlots = availableSlots.filter(
+          (slot) => slot.startTimeUTC < afternoonStartUTC
+        );
+      }
+    }
+
+    // B. Filter based on Existing Appointments
+    const dayStartInAppTz = fromZonedTime(`${date}T00:00:00`, appTimeZone);
+    const dayEndInAppTz = fromZonedTime(`${date}T23:59:59`, appTimeZone);
+
+    const appointmentsOnDate = await prisma.appointment.findMany({
+      where: {
+        doctorId,
+        appointmentStartUTC: {
+          gte: dayStartInAppTz,
+          lte: dayEndInAppTz,
+        },
+        status: {
+          in: [
+            AppointmentStatus.BOOKING_CONFIRMED,
+            AppointmentStatus.CASH,
+            AppointmentStatus.PAYMENT_PENDING,
+          ],
+        },
+      },
+      select: {
+        appointmentStartUTC: true,
+        status: true,
+        reservationExpiresAt: true,
+        userId: true,
+      },
+    });
+
+    // Create a set of UTC start times for all "taken" slots for efficient lookup.
+    const takenSlotTimesUTC = new Set<string>();
+    appointmentsOnDate.forEach((appt) => {
+      const isConfirmed =
+        appt.status === AppointmentStatus.BOOKING_CONFIRMED ||
+        appt.status === AppointmentStatus.CASH;
+
+      const isPendingAndActive =
+        appt.status === AppointmentStatus.PAYMENT_PENDING &&
+        appt.reservationExpiresAt &&
+        appt.reservationExpiresAt > nowUTC;
+
+      // User-Specific Exception: A user's own pending slot should not be considered "taken".
+      const isCurrentUserOwnPendingSlot =
+        isPendingAndActive && currentUserId && appt.userId === currentUserId;
+
+      if ((isConfirmed || isPendingAndActive) && !isCurrentUserOwnPendingSlot) {
+        takenSlotTimesUTC.add(appt.appointmentStartUTC.toISOString());
+      }
+    });
+
+    if (takenSlotTimesUTC.size > 0) {
+      availableSlots = availableSlots.filter(
+        (slot) => !takenSlotTimesUTC.has(slot.startTimeUTC.toISOString())
+      );
+    }
+
+    // C. Filter Past Slots for Today
+    const requestedDateParsed = parse(date, "yyyy-MM-dd", new Date());
+    const isToday = isSameDay(
+      toZonedTime(nowUTC, appTimeZone),
+      requestedDateParsed
+    );
+
+    if (isToday) {
+      availableSlots = availableSlots.filter(
+        (slot) => slot.startTimeUTC > nowUTC
+      );
+    }
+
+    // --- 4. FINALIZE AND RETURN ---
+    return {
+      success: true,
+      data: availableSlots,
+      message: "slot available",
+    };
+  } catch (error) {
+    // In a real application, you might use a more sophisticated logging service.
+    console.error("Error in getAvailableDoctorSlots:", error);
+    return {
+      success: false,
+      message: "An unexpected error occurred while fetching available slots.",
       error: error instanceof Error ? error.message : "Unknown error",
       errorType: "SERVER_ERROR",
     };

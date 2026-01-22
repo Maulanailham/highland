@@ -52,12 +52,6 @@ export interface TimeSlot {
   endTimeUTC: Date;
 }
 
-export interface TimeSlot {
-  start: string; // Format ISO atau Local Time String
-  end: string;
-  isAvailable: boolean;
-}
-
 export interface DoctorAvailabilityData {
   date: string;
   slots: TimeSlot[];
